@@ -31,55 +31,59 @@ class FaceDetector:
             if os.path.exists(new_path):
 
                 print("__________________________________________________________________", new_path)
-                results = model(new_path, classes=[0])  # 0 is the class ID for 'person' in COCO datasetcle 
+                try:
+                    results = model(new_path, classes=[0])  # 0 is the class ID for 'person' in COCO datasetcle 
 
-                # Get the first result (assuming single image input)
-                result = results[0]
+                    # Get the first result (assuming single image input)
+                    result = results[0]
 
-                # Count the number of detected persons
-                num_persons = len(result.boxes)
+                    # Count the number of detected persons
+                    num_persons = len(result.boxes)
 
-                if int(num_persons) == 1 and one_face_count <7:
-                    single_face_flag = True
-                    socketio.emit('face_detection_alert', {'message': 'One face succesfully detected'})
-                    one_face_count+=1
-                    correct_images.append(new_path)
+                    if int(num_persons) == 1 and one_face_count <7:
+                        single_face_flag = True
+                        socketio.emit('face_detection_alert', {'message': 'One face succesfully detected'})
+                        one_face_count+=1
+                        correct_images.append(new_path)
 
 
-                if int(num_persons) != 1 and one_face_count <7:
-                    single_face_flag = False
-                    socketio.emit('face_detection_alert', {'message': 'More than one face detected'})
+                    if int(num_persons) != 1 and one_face_count <7:
+                        single_face_flag = False
+                        socketio.emit('face_detection_alert', {'message': 'More than one face detected'})
 
-                if one_face_count >=7:
-                    pp = os.listdir("uploads")[-1]
-                    id_path = f"uploads/{pp}"
-                    # print(f"HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH: {id_path}")
-                    # cut_user(id_path)
-                    face_path = random.choice(correct_images)
-                    socketio.emit('face_detection_alert', {'message': 'Hold on We are processing......'})
+                    if one_face_count >=7:
+                        pp = os.listdir("uploads")[-1]
+                        id_path = f"uploads/{pp}"
+                        # print(f"HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH: {id_path}")
+                        # cut_user(id_path)
+                        face_path = random.choice(correct_images)
+                        socketio.emit('face_detection_alert', {'message': 'Hold on We are processing......'})
 
-                    id_cut_path = os.listdir("id")[-1]
-                    if os.path.exists(f"id/{id_cut_path}"):
-                        pass
-                    else:
-                        sleep(0.5)
-                    if os.path.exists(face_path):
-                        pass
-                    else:
-                        sleep(0.5)
-                    c_fl = compare_id_and_face(f"id/{id_cut_path}", face_path)
-                    if c_fl == False:
-                        trying_counter+=1
-                        socketio.emit('face_detection_alert', {'message': 'FACE DOES NOT MATCH. PLEASE TRY AGAIN'})
-                    elif c_fl == True:
-                        face_base = encode_image_to_base64(face_path)
-                        id_base = encode_image_to_base64(id_path)
-                        socketio.emit('face_matched', {'message': 'FACE MATCHED', 'face_id': face_base, 'id_id': id_base})
-                        shutil.rmtree("imgs")
-                        shutil.rmtree("uploads")
-                        shutil.rmtree("id")
-                        break
-                new_path = ""  # Reset new_path after processing
+                        id_cut_path = os.listdir("id")[-1]
+                        if os.path.exists(f"id/{id_cut_path}"):
+                            pass
+                        else:
+                            sleep(0.5)
+                        if os.path.exists(face_path):
+                            pass
+                        else:
+                            sleep(0.5)
+                        c_fl = compare_id_and_face(f"id/{id_cut_path}", face_path)
+                        if c_fl == False:
+                            trying_counter+=1
+                            socketio.emit('face_detection_alert', {'message': 'FACE DOES NOT MATCH. PLEASE TRY AGAIN'})
+                        elif c_fl == True:
+                            face_base = encode_image_to_base64(face_path)
+                            id_base = encode_image_to_base64(id_path)
+                            socketio.emit('face_matched', {'message': 'FACE MATCHED', 'face_id': face_base, 'id_id': id_base})
+                            shutil.rmtree("imgs")
+                            shutil.rmtree("uploads")
+                            shutil.rmtree("id")
+                            break
+                    new_path = ""  # Reset new_path after processing
+                except:
+                    print("bad file", new_path)
+                    continue
 
 
     def start(self):
