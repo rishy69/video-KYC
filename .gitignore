@@ -1,0 +1,28 @@
+# Ignore all image files, subfolders, .pt files, face folder, and __pycache__ folder in the back-end directory
+back-end/**/*.jpg
+back-end/**/*.jpeg
+back-end/**/*.png
+back-end/**/*.gif
+back-end/**/*.bmp
+back-end/**/*.tiff
+back-end/**/*.svg
+back-end/**/*.webp
+back-end/**/*.ico
+
+back-end/**/
+back-end/**/*.pt
+
+face
+back-end/**/__pycache__/
+
+# Standard React ignore rules for the front-end directory
+front-end/node_modules/
+front-end/.env
+front-end/.DS_Store
+front-end/build/
+front-end/.next/
+front-end/out/
+front-end/coverage/
+front-end/npm-debug.log*
+front-end/yarn-debug.log*
+front-end/yarn-error.log*
