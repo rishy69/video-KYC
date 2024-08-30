@@ -170,7 +170,9 @@ def handle_frame(frame_data):
         
 @socketio.on('purge')
 def handle_purge(data):
-    if data == "purge":
+    print("Entering purge function")
+    if data.get('purge') == "purge":
+        print("ENTERING PURGE---------------------------------------------------------------------")
         try:
             # Delete the specified directories
             shutil.rmtree("imgs", ignore_errors=True)

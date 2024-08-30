@@ -15,7 +15,9 @@ const ImageUpload = () => {
   const [processingImg, setProcessingImg] = useState(null)
   const [processingImgId, setProcessingId] = useState()
   const [showPurgeButton, setShowPurgeButton] = useState(false);
-
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isFaceMatched, setIsFaceMatched] = useState(null);
+  const [reloadState, setReload]= useState(false)
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -23,9 +25,14 @@ const ImageUpload = () => {
   
     socketRef.current.on('face_detection_alert', (data) => {
       setAlertMessage(data.message);
+      // if (data.message == "Hold on we are processing the ID."){
+      //   setIsProcessing(true)
+      // }
   
       if (data.message === 'done') {
         setIsProcessingDone(true);
+        setShowPurgeButton(false)
+        setIsProcessing(false);
       }
 
       if (data.message == "FACE DOES NOT MATCH. PLEASE TRY AGAIN"){
@@ -33,13 +40,26 @@ const ImageUpload = () => {
         setAlertMessage(data.message);
         setFace(data.face_id);
         setId(data.id_id);
-        setProcessingImg(null)
+        setProcessingImg(null);
         stopWebcam();
-        setShowPurgeButton(true)
-        setProcessingImg(null)
+        setShowPurgeButton(true);
+        setProcessingImg(null);
+        setIsFaceMatched(false);
+        setIsProcessing(false);
+        setReload(false)
       }
   
 
+    });
+
+    socketRef.current.on('purge_complete', (data) => {
+      console.log('Purge completed:', data.message);
+      // You can handle the successful purge here if needed
+    });
+  
+    socketRef.current.on('purge_error', (data) => {
+      console.error('Purge error:', data.message);
+      // Handle the error appropriately
     });
   
     socketRef.current.on('face_matched', (data) => {
@@ -47,17 +67,23 @@ const ImageUpload = () => {
       setAlertMessage(data.message);
       setFace(data.face_id);
       setId(data.id_id);
-      setProcessingImg(null)
+      setProcessingImg(null);
       stopWebcam();
+      setIsFaceMatched(true);
+      setIsProcessing(false);
+      setShowPurgeButton(false)
+      setReload(true)
     });
   
     socketRef.current.on('processing', (data) => {
       if (data.message === "processing") {
         setAlertMessage("Hold on, we are processing...");
-        console.log(data.id)
-        setProcessingImg(data.img)
-        setProcessingId(data.id)
+        // setProcessingImg(data.img);
+        // setProcessingId(data.id);
         stopWebcam();
+        setIsProcessing(true);
+        setShowPurgeButton(false)
+        setReload(false)
       }
     });
 
@@ -67,6 +93,8 @@ const ImageUpload = () => {
           setId(null)
           setWarning("Make sure no one else is seen in the frame. Make sure you are in a well-lit room.");
           setUploadedImage(null)
+          setShowPurgeButton(false)
+          setReload(false)
         } 
         else {
           setWarning("");
@@ -93,9 +121,22 @@ const ImageUpload = () => {
       reader.readAsDataURL(file);
     }
   };
-
+  const handleRefresh = () => {
+    window.location.reload(true); // Reload the entire page, ignoring cached content
+  };
   const handlePurge = () => {
     socketRef.current.emit('purge', { purge: "purge" });
+    
+    // Wait for the server to respond before reloading
+    socketRef.current.on('purge_complete', () => {
+      window.location.reload(true);
+    });
+    
+    socketRef.current.on('purge_error', (data) => {
+      console.error('Purge error:', data.message);
+      // Handle the error appropriately (e.g., show an error message to the user)
+    });
+  
     setShowPurgeButton(false);
   };
 
@@ -148,18 +189,18 @@ const ImageUpload = () => {
 
   const getAlertClass = (message) => {
     if (message.includes('One face succesfully detected') || 
-        message.includes('Hold on we are processing......') ||
+        message.includes('Hold on, we are processing...') ||
         message.includes('Hold on we are processing the ID.') ||
         message.includes('FACE MATCHED')||
         message.includes('done')) {
-      return 'alert-green';
-    } else {
-      return 'alert-red';
-    }
-  };
-
-  return (
-    <div className="container">
+          return 'alert-green';
+        } else {
+          return 'alert-red';
+        }
+      };
+      
+      return (
+        <div className="container">
       <h1>Face Detection App</h1>
       {!isImageUploaded && (
         <div className="upload-btn-wrapper">
@@ -167,16 +208,41 @@ const ImageUpload = () => {
           <input type="file" accept="image/*" onChange={handleImageUpload} />
         </div>
       )}
+      {alertMessage && (
+        <div className={`alert ${getAlertClass(alertMessage)}`}>
+          {alertMessage}
+        </div>
+      )}
+
       {isImageUploaded && uploadedImage && (
         <div className="uploaded-image-container">
           <h3>Uploaded Image:</h3>
           <img src={uploadedImage} alt="Uploaded" className="uploaded-image" />
         </div>
       )}
-      {isImageUploaded && isProcessingDone && !isWebcamActive && (
-        <button className="webcam-btn" onClick={startWebcam}>Start Webcam</button>
+      {isImageUploaded && isProcessingDone && !isWebcamActive && !isProcessing && !isFaceMatched && (
+        <div className="button-container">
+          {showPurgeButton && (
+             <button onClick={handlePurge} className='btn'>Restart</button>
+          )}
+          <button className="btn" onClick={startWebcam}>{isFaceMatched === false ? "Retry" : "Start Webcam"}</button>
+        </div>
       )}
-      
+
+      {!isFaceMatched && faceId && idId && (
+            <div className="instruction-container">
+              <p>1. Click retry to check with the same ID uploaded</p>
+              <p>2. Click restart to try from scratch</p>
+            </div>
+          )}
+
+      {isProcessing && (
+        <div className="loading-animation">
+          <img src="skull_grey.gif" alt="Loading..." className="centered-gif-container"/>
+          {/* Or use a spinner */}
+          {/* <div className="spinner"></div> */}
+        </div>
+      )}
       {isWebcamActive && warningDescription && (
       <div className="warning">
         <ul>
@@ -196,14 +262,13 @@ const ImageUpload = () => {
         <div class="face-outline" />
       </div>
       
-
-
-
-      {alertMessage && (
-        <div className={`alert ${getAlertClass(alertMessage)}`}>
-          {alertMessage}
-        </div>
+      {reloadState&& (
+        <div className="refresh-button-container">
+        <button className="btn" onClick={handleRefresh}>Restart</button>
+      </div>
       )}
+
+
         {processingImg && processingImgId&&(<div className='matched-images'>
         <img src={`data:image/jpeg;base64,${processingImg}`}alt="ID Image"className="matched-image"/>
         <img src={`data:image/jpeg;base64,${processingImgId}`}alt="Face Image"className="matched-image"/>
@@ -216,10 +281,7 @@ const ImageUpload = () => {
         </div>
 
       )}
-        {showPurgeButton && (
-  <button className="purge-btn" onClick={handlePurge}>Purge</button>
-)}
-    </div>
+        </div>
   );
 };
 
