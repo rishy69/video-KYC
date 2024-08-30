@@ -24,7 +24,6 @@ def cut_user(pp):
         print(kok)
         print((x1, y1, x2, y2))
         cropped_image.save(f"id/{kok+1}.jpg")
-        print("HARI IS GAY ASF")
 
 
 def compare_id_and_face(f1, f2):
@@ -43,7 +42,7 @@ def compare_id_and_face(f1, f2):
     result = DeepFace.verify(
         img1_path=f1,
         img2_path=f2,
-        detector_backend=backends[2],
+        detector_backend=backends[-2],
         model_name=models[-1],
         enforce_detection=False,
         distance_metric=metrics[-1],

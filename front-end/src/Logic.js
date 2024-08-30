@@ -11,28 +11,67 @@ const ImageUpload = () => {
   const [idId, setId] = useState(null);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [isProcessingDone, setIsProcessingDone] = useState(false); // New state for processing status
+  const [warningDescription, setWarning] = useState("")
+  const [processingImg, setProcessingImg] = useState(null)
+  const [processingImgId, setProcessingId] = useState()
+  const [showPurgeButton, setShowPurgeButton] = useState(false);
 
   const videoRef = useRef(null);
 
   useEffect(() => {
     socketRef.current = io('http://localhost:5000');
-
+  
     socketRef.current.on('face_detection_alert', (data) => {
       setAlertMessage(data.message);
-
-      // Check for the 'done' message and update state
+  
       if (data.message === 'done') {
         setIsProcessingDone(true);
       }
-    });
 
+      if (data.message == "FACE DOES NOT MATCH. PLEASE TRY AGAIN"){
+        setWarning(null);
+        setAlertMessage(data.message);
+        setFace(data.face_id);
+        setId(data.id_id);
+        setProcessingImg(null)
+        stopWebcam();
+        setShowPurgeButton(true)
+        setProcessingImg(null)
+      }
+  
+
+    });
+  
     socketRef.current.on('face_matched', (data) => {
+      setWarning(null);
       setAlertMessage(data.message);
       setFace(data.face_id);
       setId(data.id_id);
-
-      // Stop the webcam when a face match is found
+      setProcessingImg(null)
       stopWebcam();
+    });
+  
+    socketRef.current.on('processing', (data) => {
+      if (data.message === "processing") {
+        setAlertMessage("Hold on, we are processing...");
+        console.log(data.id)
+        setProcessingImg(data.img)
+        setProcessingId(data.id)
+        stopWebcam();
+      }
+    });
+
+    socketRef.current.on('video_alert', (data) => {
+        if (data.message === 'video_started') {
+          setFace(null)
+          setId(null)
+          setWarning("Make sure no one else is seen in the frame. Make sure you are in a well-lit room.");
+          setUploadedImage(null)
+        } 
+        else {
+          setWarning("");
+        }
+      
     });
 
     return () => {
@@ -41,8 +80,7 @@ const ImageUpload = () => {
       }
     };
   }, []);
-
-  const handleImageUpload = (event) => {
+    const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
@@ -54,6 +92,11 @@ const ImageUpload = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handlePurge = () => {
+    socketRef.current.emit('purge', { purge: "purge" });
+    setShowPurgeButton(false);
   };
 
   const startWebcam = async () => {
@@ -104,9 +147,11 @@ const ImageUpload = () => {
   }, []);
 
   const getAlertClass = (message) => {
-    if (message.includes('One face successfully detected') || 
-        message.includes('Hold on We are processing') ||
-        message.includes('FACE MATCHED')) {
+    if (message.includes('One face succesfully detected') || 
+        message.includes('Hold on we are processing......') ||
+        message.includes('Hold on we are processing the ID.') ||
+        message.includes('FACE MATCHED')||
+        message.includes('done')) {
       return 'alert-green';
     } else {
       return 'alert-red';
@@ -131,6 +176,16 @@ const ImageUpload = () => {
       {isImageUploaded && isProcessingDone && !isWebcamActive && (
         <button className="webcam-btn" onClick={startWebcam}>Start Webcam</button>
       )}
+      
+      {isWebcamActive && warningDescription && (
+      <div className="warning">
+        <ul>
+          {warningDescription.split('. ').map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    )}
       <div className="video-container" style={{ display: isWebcamActive ? 'block' : 'none' }}>
         <video 
           ref={videoRef} 
@@ -138,12 +193,22 @@ const ImageUpload = () => {
           playsInline
           className="video-mirrored"
         />
+        <div class="face-outline" />
       </div>
+      
+
+
+
       {alertMessage && (
         <div className={`alert ${getAlertClass(alertMessage)}`}>
           {alertMessage}
         </div>
       )}
+        {processingImg && processingImgId&&(<div className='matched-images'>
+        <img src={`data:image/jpeg;base64,${processingImg}`}alt="ID Image"className="matched-image"/>
+        <img src={`data:image/jpeg;base64,${processingImgId}`}alt="Face Image"className="matched-image"/>
+        
+        </div>)}
       {idId && faceId && (
         <div className="matched-images">
         <img src={`data:image/jpeg;base64,${idId}`} alt="ID Image" className="matched-image" />
@@ -151,6 +216,9 @@ const ImageUpload = () => {
         </div>
 
       )}
+        {showPurgeButton && (
+  <button className="purge-btn" onClick={handlePurge}>Purge</button>
+)}
     </div>
   );
 };

@@ -17,6 +17,10 @@
     position: relative;
     overflow: hidden;
     display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
   }
   
   .btn {
@@ -35,6 +39,7 @@
     left: 0;
     top: 0;
     opacity: 0;
+    
   }
   
   .webcam-btn {
@@ -122,3 +127,27 @@
     background-color: #F44336;
     color: white;
   }
+  .warning {
+    color: #333;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+    margin-left: 15px;
+  }
+  
+  .warning ul {
+    list-style-type: disc;
+    margin-left: 20px;
+  }
+  .face-outline {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 253px;
+    height: 317px;
+    border: 2px solid #00ff00;
+    border-radius: 50% / 70%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  

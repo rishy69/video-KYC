@@ -40,48 +40,75 @@ class FaceDetector:
                     # Count the number of detected persons
                     num_persons = len(result.boxes)
 
-                    if int(num_persons) == 1 and one_face_count <7:
+                    if int(num_persons) == 1 and one_face_count <3:
                         single_face_flag = True
                         socketio.emit('face_detection_alert', {'message': 'One face succesfully detected'})
                         one_face_count+=1
                         correct_images.append(new_path)
 
 
-                    if int(num_persons) != 1 and one_face_count <7:
+                    if int(num_persons) != 1 and one_face_count <3:
                         single_face_flag = False
                         socketio.emit('face_detection_alert', {'message': 'More than one face detected'})
 
-                    if one_face_count >=7:
+                    if one_face_count >=3:
                         pp = os.listdir("uploads")[-1]
                         id_path = f"uploads/{pp}"
+                        counter_bool_true = []
+                        counter_bool_false = []
+
                         # print(f"HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH: {id_path}")
                         # cut_user(id_path)
-                        face_path = random.choice(correct_images)
-                        socketio.emit('face_detection_alert', {'message': 'Hold on We are processing......'})
-
-                        id_cut_path = os.listdir("id")[-1]
-                        if os.path.exists(f"id/{id_cut_path}"):
-                            pass
-                        else:
-                            sleep(0.5)
-                        if os.path.exists(face_path):
-                            pass
-                        else:
-                            sleep(0.5)
-                        c_fl = compare_id_and_face(f"id/{id_cut_path}", face_path)
-                        if c_fl == False:
-                            trying_counter+=1
-                            socketio.emit('face_detection_alert', {'message': 'FACE DOES NOT MATCH. PLEASE TRY AGAIN'})
-                        elif c_fl == True:
-                            face_base = encode_image_to_base64(face_path)
+                        while len(correct_images) > 0:
                             id_base = encode_image_to_base64(id_path)
+                            face_path = random.choice(correct_images)
+                            face_base = encode_image_to_base64(face_path)
+                            socketio.emit('processing', {'message': 'processing', 'img': face_base, 'id': id_base})
+                            print(correct_images)
+                            print(f"true_list: {counter_bool_true}\nfalse_list: {counter_bool_false}")
+                            print(len(correct_images),'th iteration')
+
+                            if len(counter_bool_false) >=2 or len(counter_bool_true) >=2:
+                                break
+                            else:
+                                pass
+
+                            correct_images.remove(face_path)
+
+                            id_cut_path = os.listdir("id")[-1]
+
+                            if os.path.exists(face_path):
+                                pass
+                            else:
+                                sleep(0.5)
+                            c_fl = compare_id_and_face(f"id/{id_cut_path}", face_path)
+                            if c_fl == True:
+                                counter_bool_true.append(c_fl)
+                            else:
+                                counter_bool_false.append(c_fl)
+                        if len(counter_bool_false)>= len(counter_bool_true):
+                            new_path = ""
+                            single_face_flag = True
+                            one_face_count = 0
+                            trying_counter = 0
+                            correct_images = []
+                            trying_counter+=1
+                            socketio.emit('face_detection_alert', {'message': 'FACE DOES NOT MATCH. PLEASE TRY AGAIN', 'face_id': face_base, 'id_id': id_base})
+                        elif len(counter_bool_false)< len(counter_bool_true):
                             socketio.emit('face_matched', {'message': 'FACE MATCHED', 'face_id': face_base, 'id_id': id_base})
                             shutil.rmtree("imgs")
                             shutil.rmtree("uploads")
                             shutil.rmtree("id")
+                            latest_frame = None
+                            new_path = ""
+                            single_face_flag = True
+                            one_face_count = 0
+                            trying_counter = 0
+                            correct_images = []
                             break
                     new_path = ""  # Reset new_path after processing
-                except:
+                except Exception as e:
+                    print(e)
                     print("bad file", new_path)
                     continue
 
@@ -126,6 +153,7 @@ correct_images = []
 @socketio.on('video_frame')
 def handle_frame(frame_data):
     global latest_frame, new_path
+    socketio.emit('video_alert', {'message': 'video_started'})
 
     # Decode the base64 image
     if frame_data is not None and os.path.exists("imgs") and os.path.isdir("imgs"):
@@ -140,7 +168,25 @@ def handle_frame(frame_data):
         latest_frame = img
         
         
+@socketio.on('purge')
+def handle_purge(data):
+    if data == "purge":
+        try:
+            # Delete the specified directories
+            shutil.rmtree("imgs", ignore_errors=True)
+            shutil.rmtree("uploads", ignore_errors=True)
+            shutil.rmtree("id", ignore_errors=True)
 
+            # Emit a success message
+            socketio.emit('purge_complete', {'message': 'Purge completed successfully'})
+            
+            print("Purge operation completed: directories 'imgs', 'uploads', and 'id' have been deleted.")
+        except Exception as e:
+            # If an error occurs, emit an error message
+            socketio.emit('purge_error', {'message': f'Error during purge: {str(e)}'})
+            print(f"Error during purge operation: {str(e)}")
+    else:
+        socketio.emit('purge_error', {'message': 'Invalid purge command'})
 @socketio.on('uploaded_image')
 def handle_uploaded_image(image_data):
     os.makedirs("imgs", exist_ok=True)
